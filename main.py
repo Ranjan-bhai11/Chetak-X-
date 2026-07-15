@@ -1,7 +1,7 @@
 import os
 import json
 from flask import Flask, render_template, request, jsonify
-from google import genai
+from groq import Groq
 
 BASE_DIR = os.path.dirname(os.path.abspath(__file__))
 TEMPLATES_DIR = os.path.join(BASE_DIR, 'templates')
@@ -9,9 +9,6 @@ HTML_FILE_PATH = os.path.join(TEMPLATES_DIR, 'index.html')
 
 if not os.path.exists(TEMPLATES_DIR):
     os.makedirs(TEMPLATES_DIR)
-
-# 🛠️ API CONFIGURATION
-API_KEY = "APNI API_KEY"  # <--- Apni asli API key yahan dalo bhai
 
 HTML_CONTENT = """<!DOCTYPE html>
 <html lang="en">
@@ -97,7 +94,10 @@ with open(HTML_FILE_PATH, "w", encoding="utf-8") as f:
 
 # FLASK INITIALIZATION
 app = Flask(__name__, template_folder=TEMPLATES_DIR)
-client = genai.Client(api_key=API_KEY)
+
+# Render ke environment variable se Groq Key uthane ka direct tarika
+GROQ_API_KEY = os.environ.get("GROQ_API_KEY")
+client = Groq(api_key=GROQ_API_KEY)
 
 chat_history = [ ]
 
@@ -143,8 +143,6 @@ LANGUAGE
 =========================
 RESPONSE STYLE
 =========================
-RESPONSE STYLE
-
 - Normal replies: 2–5 lines.
 - Detailed replies: maximum 10 short bullet points.
 - Never write unnecessarily long essays.
@@ -203,25 +201,22 @@ Chat History:
 User: {user_input}
 """
 
-        response = client.models.generate_content(
-            model="gemini-2.5-flash",
-            contents=prompt
+        # Groq Client call using Llama 3 8b model (Fast and Intelligent)
+        response = client.chat.completions.create(
+            model="llama3-8b-8192",
+            messages=[
+                {"role": "user", "content": prompt}
+            ]
         )
 
-        reply = response.text
+        reply = response.choices[0].message.content
         chat_history.append(f"Chetak X: {reply}")
 
         return jsonify({"reply": reply})
 
     except Exception as e:
-        if "429" in str(e) or "quota" in str(e).lower():
-            return jsonify({
-                "reply": "Google Server responded with 429: Too Many Requests! Kal daily free limit reset hone par full dynamic answers wapas chal padenge bhai."
-            })
-
         return jsonify({"reply": f"Error: {str(e)}"})
 
 
 if __name__ == '__main__':
-    # Standard Debug Mode lock kiya taaki PIN wapas terminal mein show ho jaye
     app.run(host='0.0.0.0', port=5000, debug=True)
